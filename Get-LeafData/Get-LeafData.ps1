@@ -43,7 +43,7 @@ function Get-RecordIds {
     # get our leaf json data
     $LeafContent = (Invoke-WebRequest -Certificate $UserCert -URI $LeafURI).Content
     # write our file
-    $LeafContent | Out-File '.\id.json'
+    #$LeafContent | Out-File '.\id.json'
     # get our record ids from our request
     $LeafRecordIds = ($LeafContent | ConvertFrom-Json).psobject.properties.name
     # return our records
