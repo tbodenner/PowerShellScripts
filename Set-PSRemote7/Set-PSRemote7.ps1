@@ -234,8 +234,7 @@ $PssOptions = New-PSSessionOption -MaxConnectionRetryCount 0 -OpenTimeout 30000 
 $RemoteScriptBlock = {
 	$PS7Profile = Get-PSSessionConfiguration -Name Powershell.7 -ErrorAction SilentlyContinue
 	if ($Null -eq $PS7Profile) {
-		$StartJobScriptBlock = { Start-Sleep -Seconds 5; pwsh -Command { Enable-PSRemoting -Force } }
-		Start-Job -ScriptBlock $StartJobScriptBlock | Out-Null
+		pwsh -Command { Enable-PSRemoting -Force }
 		$False
 	}
 	else {
@@ -273,9 +272,9 @@ foreach ($Computer in $ComputerList) {
 				Write-ColorLine -Text (Format-Line -Text "Ping ($($PingStatus))" -Computer $Computer) -Color Green
 				# run the script on the target computer if we can ping the computer
 				$CommandResult = Invoke-Command @Parameters
-				# check if we got anything back from the invoke command
+				# check if we got anything back from the invoke command. the Enable-PSRemoting command will end the remote session
 				if ($Null -eq $CommandResult) {
-					Write-ColorLine -Text (Format-Line -Text 'Result was NULL' -Computer $Computer) -Color Magenta
+					Write-ColorLine -Text (Format-Line -Text 'Ran Enable-PSRemoting command' -Computer $Computer) -Color Magenta
 					# update our array
 					$ErrorArray += $Computer
 					Add-Content -Path $ErrorComputerFile -Value $Computer
