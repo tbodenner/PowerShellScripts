@@ -232,9 +232,9 @@ $PssOptions = New-PSSessionOption -MaxConnectionRetryCount 0 -OpenTimeout 30000 
 
 # the script that will be run on the remote computer
 $RemoteScriptBlock = {
-	$PS7Profile = Get-PSSessionConfiguration -Name Powershell.7 -ErrorAction SilentlyContinue
+	$PS7Profile = Get-PSSessionConfiguration -Name Powershell.7 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
 	if ($Null -eq $PS7Profile) {
-		pwsh -Command { Enable-PSRemoting -Force }
+		pwsh -Command { Enable-PSRemoting -Force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue }
 		$False
 	}
 	else {
