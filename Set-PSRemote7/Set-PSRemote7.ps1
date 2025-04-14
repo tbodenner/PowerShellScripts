@@ -271,29 +271,8 @@ foreach ($Computer in $ComputerList) {
 			if ($PingStatus -ne $DnsMismatch) {
 				Write-ColorLine -Text (Format-Line -Text "Ping ($($PingStatus))" -Computer $Computer) -Color Green
 				# run the script on the target computer if we can ping the computer
-				$CommandResult = Invoke-Command @Parameters
-				# check if we got anything back from the invoke command. the Enable-PSRemoting command will end the remote session
-				if ($Null -eq $CommandResult) {
-					Write-ColorLine -Text (Format-Line -Text 'Ran Enable-PSRemoting command' -Computer $Computer) -Color Magenta
-					# update our array
-					$ErrorArray += $Computer
-					Add-Content -Path $ErrorComputerFile -Value $Computer
-				}
-				else {
-					# check if the computer already has the powershell v7 profile
-					if ($CommandResult -eq $True) {
-						Write-ColorLine -Text (Format-Line -Text 'Already using remote PowerShell v7' -Computer $Computer) -Color Blue
-						# update our array
-						$GoodArray += $Computer
-						Add-Content -Path $GoodComputerFile -Value $Computer
-					}
-					else {
-						Write-ColorLine -Text (Format-Line -Text 'Updated remote for PowerShell v7' -Computer $Computer) -Color Cyan
-						# update our array
-						$NeedArray += $Computer
-						Add-Content -Path $NeedComputerFile -Value $Computer
-					}
-				}
+				Invoke-Command @Parameters -AsJob | Out-Null
+				Write-ColorLine -Text (Format-Line -Text "Job Created" -Computer $Computer) -Color White
 			}
 			else {
 				# otherwise, write an error
@@ -327,6 +306,80 @@ foreach ($Computer in $ComputerList) {
 		Write-Host
 	}
 }
+
+# update our progress
+Write-Progress -Activity $Activity -Status 'Getting job data' -PercentComplete 100
+# get the current time and add 5 minutes, we will stop the loop after this time
+$StopDate = (Get-Date).AddMinutes(2)
+# store our jobs
+$AllJobs = 'JOBS'
+# continue checking for new jobs until none are found
+while ($Null -ne $AllJobs) {
+	# stop after 5 minutes
+	if ((Get-Date) -gt $StopDate) {
+		Write-ColorLine -Text 'Command has stopped due to timeout' -Color Red
+		break
+	}
+	# get all the current jobs
+	$AllJobs = Get-Job
+	# get each job's status
+	foreach ($Job in $AllJobs) {
+		$Computer = $Job.Location
+		# if the job failed, add the computer to our error list and remove the job
+		if ($Job.State -eq 'Failed') {
+			Remove-Job -Job $Job -ErrorAction SilentlyContinue
+			$ErrorArray += $Computer
+			Add-Content -Path $ErrorComputerFile -Value $Computer
+		}
+		if ($Job.State -eq 'Completed') {
+			try {
+				$CommandResult = Receive-Job -Job $Job
+			}
+			catch {
+				continue
+			}
+			# check if we got anything back from the invoke command. the Enable-PSRemoting command will end the remote session
+			if ($Null -eq $CommandResult) {
+				Write-ColorLine -Text (Format-Line -Text 'Ran Enable-PSRemoting command' -Computer $Computer) -Color Magenta
+				# update our array
+				$ErrorArray += $Computer
+				Add-Content -Path $ErrorComputerFile -Value $Computer
+			}
+			else {
+				# check if the computer already has the powershell v7 profile
+				if ($CommandResult -eq $True) {
+					Write-ColorLine -Text (Format-Line -Text 'Already using remote PowerShell v7' -Computer $Computer) -Color Blue
+					# update our array
+					$GoodArray += $Computer
+					Add-Content -Path $GoodComputerFile -Value $Computer
+				}
+				else {
+					Write-ColorLine -Text (Format-Line -Text 'Updated remote for PowerShell v7' -Computer $Computer) -Color Cyan
+					# update our array
+					$NeedArray += $Computer
+					Add-Content -Path $NeedComputerFile -Value $Computer
+				}
+			}
+			# remove the job
+			Remove-Job -Job $Job -ErrorAction SilentlyContinue
+		}
+	}
+}
+
+# get our reminaing jobs
+$RemainingJobs = Get-Job
+# add the computer to our error list
+foreach ($Job in $RemainingJobs) {
+	Write-ColorLine -Text (Format-Line -Text 'Job did not complete' -Computer $Job.Location) -Color Red
+	$ErrorArray += $Job.Location
+	# stop the job
+	Stop-Job -Job $Job
+	# remove the job
+	Remove-Job -Job $Job
+}
+
+# update progress
+Write-Progress -Activity $Activity -Status 'Done' -PercentComplete 100 -Completed
 
 # create our counts array to output to the console and a file
 $CountsArray = @(
