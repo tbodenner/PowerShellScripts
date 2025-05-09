@@ -5,7 +5,7 @@ $FilePaths = @(
     'C:\inetpub\wwwroot\StreemWebRoot\StreemOutFiles'
 )
 # start a transcript
-Start-Transcript -Path 'C:\Temp\Remove-ExcessFaxFiles.txt' | Out-Null
+Start-Transcript -Path 'C:\Temp\Remove-ExcessFaxFiles.txt' -Force | Out-Null
 # we will add every file to this array
 $AllFiles = @()
 # get the files from each path
@@ -24,9 +24,12 @@ $FileSizeCount = 0
 Write-Host 'Removing files...'
 foreach ($File in $AllFiles) {
     if ($File.LastWriteTime -lt $TargetDate) {
-        Remove-Item -Path $File.FullName -Force -ErrorAction SilentlyContinue
-        $FileSizeCount += $File.Length
-        $RemovedFileCount += 1
+        # only delete files, skipping folders
+        if (Test-Path -Path $File -PathType Leaf) {
+            Remove-Item -Path $File.FullName -Force -ErrorAction SilentlyContinue
+            $FileSizeCount += $File.Length
+            $RemovedFileCount += 1
+        }
     }
 }
 Write-Host "Removed Files:"
