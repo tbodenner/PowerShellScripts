@@ -77,7 +77,7 @@ function Update-ComputerArray {
 }
 
 # file for our list of computers
-$ComputerFile = '.\L13.txt'
+$ComputerFile = '.\ComputerList.txt'
 
 # get list of computers
 $Computers = Get-Content -Path $ComputerFile
