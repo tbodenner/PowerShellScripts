@@ -84,12 +84,24 @@ $OutputComputers = $Computers.Clone()
 # file to copy to the computer that contains our drivers
 $UpdateArchiveFile = 'amddrtm.zip'
 
+# get AD computers
+$ADComputers = (Get-ADComputer -Filter 'Name -like "PRE-LT*"').Name
+
 # foreach computer
 foreach ($Computer in $Computers) {
     # skip any null or empty computers
     if (($null -eq $Computer) -or ($Computer -eq '')) { continue }
     # the current computer we are working on
     Write-Host "$($Computer): " -NoNewline
+    # check if the computer is not in AD
+    if ($Computer -notin $ADComputers) {
+        # remove the good result from our output array
+        $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
+        # write our output
+        Write-Host 'Not in AD'
+        # move to the next computer
+        continue
+    }
     # ping the computer
     if ((Test-Connection -TargetName $Computer -Ping -Count 1 -TimeoutSeconds 1 -Quiet) -eq $True) {
         # try to install the driver on the remote computer
