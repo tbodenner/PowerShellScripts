@@ -41,9 +41,7 @@ $InstallDriverScriptBlock = {
             # decompress the driver
             Expand-Archive -Path $UpdateArchiveFilePath -DestinationPath $UpdateFolderPath -Force
             # install driver
-            pnputil.exe /add-driver $UpdateFilePath /install | Out-Null
-            # sleep for one second
-            Start-Sleep -Seconds 1
+            Start-Process -FilePath 'pnputil.exe' -ArgumentList "/add-driver $($UpdateFilePath) /install" -NoNewWindow -Wait | Out-Null
             # check if new driver has been installed
             if((Get-IntFromVersion -Version (Get-DriverVersion)) -ge $TargetVersion) {
                 # driver updated
