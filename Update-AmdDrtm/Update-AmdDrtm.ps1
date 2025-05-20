@@ -10,10 +10,19 @@ $InstallDriverScriptBlock = {
     }
 
     function Get-DriverVersion {
-        # driver name
-        $Name = 'AMD DRTM Boot Driver'
-        # get and return the driver version from the cim data
-        (Get-CimInstance -ClassName Win32_PnPSignedDriver | Where-Object { $_.DeviceName -eq $Name }).DriverVersion
+        # get all the paths for the amddrtm drivers installed on this computer
+        $Drivers = (Resolve-Path -Path 'C:\Windows\System32\DriverStore\FileRepository\amddrtm.inf*\amddrtm.inf').Path
+        # our driver version to return
+        $OutputDriver = -1
+        # for each driver path
+        foreach ($Driver in $Drivers) {
+            # get the version of the driver
+            $DriverVersion = Get-IntFromVersion -Version (Get-WindowsDriver -Online -Driver $Driver).Version
+            # if the driver version is greater than our output driver, update our output driver
+            if ($DriverVersion -gt $OutputDriver) { $OutputDriver = $DriverVersion }
+        }
+        # return our output driver
+        $OutputDriver
     }
 
     # try to install our driver
@@ -35,6 +44,12 @@ $InstallDriverScriptBlock = {
 
         # current driver version
         $DriverVersion = Get-IntFromVersion -Version (Get-DriverVersion)
+
+        # check for our error value
+        if ($DriverVersion -le -1) {
+            # the driver was not found on this computer
+            return 'Not Found'
+        }
 
         # if less than target 1.0.18.4
         if ($DriverVersion -lt $TargetVersion) {
@@ -134,7 +149,7 @@ foreach ($Computer in $Computers) {
                 # invoke command to run the install script block
                 $InvokeResult = Invoke-Command @Parameters
                 # check our result
-                if (($InvokeResult.ToLower() -eq 'good') -or ($InvokeResult.ToLower() -eq 'updated')) {
+                if ($InvokeResult.ToLower() -in @('good','updated','not found')) {
                     # remove the good result from our output array
                     $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
                 }
