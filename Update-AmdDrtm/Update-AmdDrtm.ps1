@@ -100,7 +100,7 @@ $OutputComputers = $Computers.Clone()
 $UpdateArchiveFile = 'amddrtm.zip'
 
 # get AD computers
-$ADComputers = (Get-ADComputer -Filter 'Name -like "PRE-LT*"').Name
+$ADComputers = (Get-ADComputer -Filter 'Name -like "PRE-LT*"' | Where-Object { $_.Enabled -eq $true }).Name
 
 # foreach computer
 foreach ($Computer in $Computers) {
