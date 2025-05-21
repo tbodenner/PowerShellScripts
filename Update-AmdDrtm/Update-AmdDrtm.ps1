@@ -25,6 +25,16 @@ $InstallDriverScriptBlock = {
         $OutputDriver
     }
 
+    function Remove-DriverFiles {
+        param (
+            [string]$Folder,
+            [string]$File
+        )
+        # delete the files and folders
+        Remove-Item -Path $Folder -Recurse -Force
+        Remove-Item -Path $File -Force
+    }
+
     # try to install our driver
     try {
         # file and folder names
@@ -47,8 +57,10 @@ $InstallDriverScriptBlock = {
 
         # check for our error value
         if ($DriverVersion -le -1) {
+            # remove the driver files
+            Remove-DriverFiles -Folder $UpdateFolderPath -File $UpdateArchiveFilePath
             # the driver was not found on this computer
-            return 'Not Found'
+            return 'Driver Not Found'
         }
 
         # if less than target 1.0.18.4
@@ -57,6 +69,8 @@ $InstallDriverScriptBlock = {
             Expand-Archive -Path $UpdateArchiveFilePath -DestinationPath $UpdateFolderPath -Force
             # install driver
             Start-Process -FilePath 'pnputil.exe' -ArgumentList "/add-driver $($UpdateFilePath) /install" -NoNewWindow -Wait | Out-Null
+            # remove the driver files
+            Remove-DriverFiles -Folder $UpdateFolderPath -File $UpdateArchiveFilePath
             # check if new driver has been installed
             if((Get-IntFromVersion -Version (Get-DriverVersion)) -ge $TargetVersion) {
                 # driver updated
@@ -149,7 +163,7 @@ foreach ($Computer in $Computers) {
                 # invoke command to run the install script block
                 $InvokeResult = Invoke-Command @Parameters
                 # check our result
-                if ($InvokeResult.ToLower() -in @('good','updated','not found')) {
+                if ($InvokeResult.ToLower() -in @('good','updated','driver not found')) {
                     # remove the good result from our output array
                     $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
                 }
