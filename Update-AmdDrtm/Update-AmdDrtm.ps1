@@ -103,6 +103,18 @@ function Update-ComputerArray {
     $NewArray
 }
 
+function Get-HostFromDns {
+    param ([string]$Ip)
+    # get our dns data from our ip
+    $DnsResult = (Resolve-DnsName -Name $Ip -ErrorAction SilentlyContinue)
+    # if out result is null, return null
+    if ($null -eq $DnsResult) { return $null }
+    # if our result has no host, return null
+    if ($null -eq $DnsResult.NameHost) { return $null }
+    # get the computer name for this ip and return it
+    return $DnsResult.NameHost.Split('.')[0]
+}
+
 # file for our list of computers
 $ComputerFile = '.\ComputerList.txt'
 
@@ -127,30 +139,70 @@ foreach ($Computer in $Computers) {
         # remove the good result from our output array
         $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
         # write our output
-        Write-Host 'Not in AD'
+        Write-Host 'Not in AD' -ForegroundColor Red
         # move to the next computer
         continue
     }
     # ping the computer
     if ((Test-Connection -TargetName $Computer -Ping -Count 1 -TimeoutSeconds 1 -Quiet) -eq $True) {
+        # try to get dns data
+        try {
+            # get our computer's name from it's dns ip address
+            $IpAddress = (Resolve-DnsName -Name $Computer -ErrorAction SilentlyContinue).IPAddress
+            # check if our ip address is null
+            if ($null -eq $IpAddress) {
+                Write-Host 'IP Not Found' -ForegroundColor Red
+                # move to the next computer
+                continue
+            }
+            # check if we got multiple ips
+            if ($IpAddress.Count -gt 1) {
+                # check each ip for a computer name
+                foreach ($Ip in $IpAddress) {
+                    # get the computer name for this ip
+                    $ComputerDns = Get-HostFromDns -Ip $Ip
+                    # no computer name was returned for the ip
+                    if ($null -eq $ComputerDns) {
+                        # this ip did not return a name
+                        continue
+                    }
+                    # if the computer name matches our computer, stop the loop
+                    if ($ComputerDns.ToLower() -eq $Computer.ToLower()) { break }
+                }
+            }
+            else {
+                # otherwise, get the computer name for the ip
+                $ComputerDns =  Get-HostFromDns -Ip $IpAddress
+            }
+        }
+        catch  {
+            # write our error
+            Write-Host 'DNS Error' -ForegroundColor Red
+            Write-Host ($_ | Out-String)
+            # move to the next computer
+            continue
+        }
+
         # try to install the driver on the remote computer
         try {
-            # try to get dns data
-            try {
-                # get our computer's name from it's dns ip address
-                $IpAddress = (Resolve-DnsName -Name $Computer -ErrorAction SilentlyContinue).IPAddress
-                $ComputerDns = (Resolve-DnsName -Name $IpAddress -ErrorAction SilentlyContinue).NameHost.Split('.')[0]
-            }
-            catch  {
-                # write our error
-                Write-Host 'DNS Error'
-                # move to the next computer
+            # check if our dns name is null
+            if ($null -eq $ComputerDns) {
+                # write the result and move to the next computer
+                Write-Host 'DNS Not Found' -ForegroundColor Red
                 continue
             }
             # check if the name from dns matches our name
             if ($ComputerDns.ToLower() -eq $Computer.ToLower()) {
-                # copy the driver to the computer
-                Copy-Item -Path ".\$($UpdateArchiveFile)" -Destination "\\$($Computer)\c$\Temp\" -Force -ErrorAction SilentlyContinue
+                # try to copy the driver to the computer
+                try {
+                    # copy the file to the computer
+                    Copy-Item -Path ".\$($UpdateArchiveFile)" -Destination "\\$($Computer)\c$\Temp\" -Force -ErrorAction SilentlyContinue
+                }
+                catch {
+                    # if the copy failed, move to the next computer
+                    Write-Host 'Copy Error' -ForegroundColor Red
+                    continue
+                }
                 # change our default settings for our remote session used by invoke-command
                 $PssOptions = New-PSSessionOption -MaxConnectionRetryCount 0 -OpenTimeout 30000 -OperationTimeout 30000
                 # invoke command options
@@ -162,20 +214,27 @@ foreach ($Computer in $Computers) {
                 }
                 # invoke command to run the install script block
                 $InvokeResult = Invoke-Command @Parameters
+                # check if our result was null
+                if ($null -eq $InvokeResult) {
+                    # our command returned no results, move onto the next computer
+                    Write-Host 'Command Result Null' -ForegroundColor Red
+                    continue
+                }
                 # check our result
                 if ($InvokeResult.ToLower() -in @('good','updated','driver not found')) {
                     # remove the good result from our output array
                     $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
                 }
                 # write our output
-                Write-Host $InvokeResult
+                Write-Host $InvokeResult -ForegroundColor Green
             }
             else {
-                Write-Host 'DNS Mismatch'
+                Write-Host 'DNS Mismatch' -ForegroundColor Red
             }
         }
         catch {
-            Write-Host 'Invoke/Copy Error'
+            Write-Host 'Command/Copy Error' -ForegroundColor Red
+            Write-Host ($_ | Out-String)
         }
 }
     else {
