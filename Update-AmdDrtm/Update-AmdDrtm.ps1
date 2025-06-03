@@ -118,15 +118,30 @@ function Get-HostFromDns {
 # file for our list of computers
 $ComputerFile = '.\ComputerList.txt'
 
+# if the computer list file is missing, create it
+if ((Test-Path -Path $ComputerFile) -eq $false) {
+    New-Item -ItemType File $ComputerFile | Out-Null
+}
+
 # get list of computers
 $Computers = Get-Content -Path $ComputerFile
-$OutputComputers = $Computers.Clone()
 
 # file to copy to the computer that contains our drivers
 $UpdateArchiveFile = 'amddrtm.zip'
 
 # get AD computers
 $ADComputers = (Get-ADComputer -Filter 'Name -like "PRE-LT*"' | Where-Object { $_.Enabled -eq $true }).Name
+
+# clone our array if it has any items in it
+if ($Computers.Length -gt 0) {
+    $OutputComputers = $Computers.Clone()
+}
+else {
+    # otherwise, fill our computer array
+    $Computers = $ADComputers.Clone()
+    # and create an empty array for our output
+    $OutputComputers = @()
+}
 
 # foreach computer
 foreach ($Computer in $Computers) {
