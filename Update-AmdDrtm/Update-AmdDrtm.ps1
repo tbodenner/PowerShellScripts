@@ -139,6 +139,8 @@ if ($Computers.Length -gt 0) {
 else {
     # otherwise, fill our computer array
     $Computers = $ADComputers.Clone()
+    # write our list to our file
+    $ADComputers | Out-File -FilePath $ComputerFile -Force
     # and create an empty array for our output
     $OutputComputers = @()
 }
@@ -260,7 +262,7 @@ foreach ($Computer in $Computers) {
 # try to write our array to file
 try {
     # write our update computer list
-    $OutputComputers | Out-File -FilePath $ComputerFile
+    $OutputComputers | Out-File -FilePath $ComputerFile -Force
     # file was written
     Write-Host "Wrote computer list '$($ComputerFile)'"
 }
