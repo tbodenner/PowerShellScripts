@@ -92,17 +92,6 @@ $InstallDriverScriptBlock = {
     }
 }
 
-function Update-ComputerArray {
-    param (
-        [string]$Name,
-        [string[]]$Array
-    )
-    # create a new array excluding the name
-    $NewArray = $Array | Where-Object { $_ -ne $Name }
-    # return the new array
-    $NewArray
-}
-
 function Get-HostFromDns {
     param ([string]$Ip)
     # get our dns data from our ip
@@ -132,17 +121,20 @@ $UpdateArchiveFile = 'amddrtm.zip'
 # get AD computers
 $ADComputers = (Get-ADComputer -Filter 'Name -like "PRE-LT*"' | Where-Object { $_.Enabled -eq $true }).Name
 
-# clone our array if it has any items in it
-if ($Computers.Length -gt 0) {
-    $OutputComputers = $Computers.Clone()
-}
-else {
-    # otherwise, fill our computer array
+# cerate a list for our output computers
+$OutputComputers = [System.Collections.Generic.List[string]]::new()
+
+# check if our array has any items in it
+if ($Computers.Length -le 0) {
+    # fill our computer array
     $Computers = $ADComputers.Clone()
     # write our list to our file
     $ADComputers | Out-File -FilePath $ComputerFile -Force
-    # and create an empty array for our output
-    $OutputComputers = @()
+}
+
+# add all our items to our output list
+foreach ($Item in $Computers) {
+    $OutputComputers.Add($Item)
 }
 
 # foreach computer
@@ -154,7 +146,7 @@ foreach ($Computer in $Computers) {
     # check if the computer is not in AD
     if ($Computer -notin $ADComputers) {
         # remove the good result from our output array
-        $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
+        [void]$OutputComputers.Remove($Computer)
         # write our output
         Write-Host 'Not in AD' -ForegroundColor Red
         # move to the next computer
@@ -240,7 +232,7 @@ foreach ($Computer in $Computers) {
                 # check our result
                 if ($InvokeResult.ToLower() -in @('good','updated','driver not found')) {
                     # remove the good result from our output array
-                    $OutputComputers = Update-ComputerArray -Name $Computer -Array $OutputComputers
+                    [void]$OutputComputers.Remove($Computer)
                 }
                 # write our output
                 Write-Host $InvokeResult -ForegroundColor Green
