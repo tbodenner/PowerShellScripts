@@ -2,5 +2,7 @@
 **/LeafData
 *.txt
 *.csv
+*.exe
+*.msi
 Job-Testing/
 Update-DES-TLS/
