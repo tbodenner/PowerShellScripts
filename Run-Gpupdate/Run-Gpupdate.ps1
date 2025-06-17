@@ -26,8 +26,8 @@ $ScriptBlock = {
         $FileData = Get-Content -Path $TimeStampFile
         # convert the timestamp to a datetime object
         $TimeStamp = [DateTime]::Parse($FileData.Trim())
-        # get a datetime 1 day before now
-        $OneDayAgo = (Get-Date).AddDays(-1)
+        # get a datetime 12 hours before now
+        $OneDayAgo = (Get-Date).AddHours(-12)
         # check if our timestamp is before our one day datetime
         if ($TimeStamp -lt $OneDayAgo) {
             # if true, run gpupdate
